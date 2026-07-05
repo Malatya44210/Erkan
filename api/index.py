@@ -5,7 +5,6 @@ from urllib.parse import urlparse, parse_qs
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # URL'den query parametresini al
         parsed_path = urlparse(self.path)
         query = parse_qs(parsed_path.query).get('q', [''])[0]
         
@@ -15,17 +14,26 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(b"Parametre eksik: ?q=sarki_adi")
             return
 
-        # YouTube ses linkini al
         try:
-            ydl_opts = {'format': 'bestaudio', 'quiet': True}
+            ydl_opts = {'format': 'bestaudio', 'quiet': True, 'noplaylist': True}
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(f"ytsearch1:{query}", download=False)
-                video_url = info['entries'][0]['url']
-
-            self.send_response(200)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(video_url.encode())
+                
+                # Liste boş mu diye kontrol et (Hatanın sebebi buydu)
+                entries = info.get('entries', [])
+                if not entries:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(b"Video bulunamadi")
+                    return
+                
+                video_url = entries[0]['url']
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(video_url.encode())
+                
         except Exception as e:
             self.send_response(500)
             self.end_headers()
